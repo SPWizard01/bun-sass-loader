@@ -28,8 +28,14 @@
     "scss"
   ],
   "exports": {
-    ".": "./src/index.ts",
-    "./utils": "./src/utils.ts"
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./types/index.d.ts"
+    },
+    "./utils": {
+      "bun": "./src/utils.ts",
+      "types": "./types/utils.d.ts"
+    }
   },
   "scripts": {
     "prepare": "rm -rf types && tsc -p tsconfig.build.json"

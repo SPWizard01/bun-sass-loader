@@ -3,11 +3,11 @@
  * @param code
  */
 export function insertStyleElement(code: string) {
-  if (typeof document === 'undefined') {
+  if (!window?.document) {
     return;
   }
 
   const style = document.createElement('style');
   style.innerHTML = code;
-  document.head.appendChild(style);
+  window.document.head.appendChild(style);
 }

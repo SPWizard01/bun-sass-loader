@@ -49,7 +49,6 @@ export default function styleLoader(options: StyleLoaderOptions = {}): BunPlugin
         import('fs'),
       ]);
       build.onResolve({ filter: /bun-style-loader-resolver/ }, (args) => {
-        console.log(args);
         return {
           path: "bun-style-loader-resolver",
           namespace: "bun-style-loader-resolver",
