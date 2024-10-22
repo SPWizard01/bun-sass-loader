@@ -35,59 +35,48 @@ export default async function compileCSS(content: string, path: string, options:
       },
     }
   });
-  const styleResolver = `
-    import bun_style_resolver from "bun-style-loader-resolver";
-  `
+
   const importedUrls = urlImports.map((url) => `import "${url}";`).join('\n');
+  const codeString = code.toString();
+  const needsResolving = codeString.includes("[BUN_RESOLVE]");
+  const styleResolver = needsResolving ? `import bun_style_resolver from "bun-style-loader-resolver";` : '';
+  const withResolver = needsResolving ? `bun_style_resolver(${JSON.stringify(codeString)})` : JSON.stringify(codeString);
+
   if (options.cssModules) {
     const nameMap = Object.fromEntries(Object.entries(exports || {}).map(([key, item]) => [key, item.name]));
     return {
       contents: `
+        ${styleResolver}
         ${importedUrls}
-        export const code = ${JSON.stringify(code.toString())};
+        export const code = ${withResolver};
         export default ${JSON.stringify(nameMap)};
       `,
       loader: 'js',
     };
   }
 
-  let defaultContent = `export default ${JSON.stringify(code.toString())};`;
-  if (defaultContent.indexOf("[BUN_RESOLVE]") !== -1) {
-    defaultContent = `
-      ${styleResolver}
-      export default bun_style_resolver(${JSON.stringify(code.toString())});
-    `
 
-  }
-  if (imports.length === 0 && urlImports.length === 0) {
+  if (imports.length === 0) {
     return {
-      contents: defaultContent,
+      contents: `
+        ${styleResolver}
+        ${importedUrls}
+        export default ${withResolver};
+      `,
       loader: 'js',
     };
   }
 
   const imported = imports.map((url, i) => `import _css${i} from "${url}";`).join('\n');
   const exported = imports.map((_, i) => `_css${i}`).join(' + ');
-  if (imports.length > 0) {
 
-    const codeString = code.toString();
-    defaultContent = `
-      ${imported}
-      export default ${exported} + ${JSON.stringify(codeString)};
-    `;
-    if (codeString.indexOf("[BUN_RESOLVE]") !== -1) {
-      defaultContent = `
-      ${styleResolver}
-      ${imported}
-      export default ${exported} + bun_style_resolver(${JSON.stringify(codeString)});
-    `
-    }
 
-  }
   return {
     contents: `
+      ${styleResolver}
       ${importedUrls}
-      ${defaultContent}
+      ${imported}
+      export default ${exported} + ${withResolver};
     `,
     loader: 'js',
   };
