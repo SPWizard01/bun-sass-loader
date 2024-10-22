@@ -10,10 +10,12 @@ export type StyleLoaderOptions = {
    * @example ['chrome 80', 'ie 11']
    */
   targets?: string[];
+  minify?: boolean;
 };
 
 const defaultOptions: StyleLoaderOptions = {
   targets: [],
+  minify: true
 };
 
 function bun_style_resolver(text: string) {
@@ -70,6 +72,7 @@ export default function styleLoader(options: StyleLoaderOptions = {}): BunPlugin
         return compileCSS(contents, args.path, {
           cssModules: isCssModule,
           targets: opts.targets,
+          minify: opts.minify
         });
       });
 
@@ -77,6 +80,7 @@ export default function styleLoader(options: StyleLoaderOptions = {}): BunPlugin
         const result = sass.compile(args.path);
         return compileCSS(result.css, args.path, {
           targets: opts.targets,
+          minify: opts.minify
         });
       });
     },

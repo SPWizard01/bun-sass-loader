@@ -15,7 +15,7 @@ export default async function compileCSS(content: string, path: string, options:
     filename: path,
     code: Uint8Array.from(Buffer.from(content)),
     cssModules: Boolean(options.cssModules),
-    minify: true,
+    minify: options.minify,
     targets,
     visitor: {
       Rule: {
