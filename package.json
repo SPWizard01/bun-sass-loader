@@ -28,14 +28,8 @@
     "scss"
   ],
   "exports": {
-    ".": {
-      "bun": "./src/index.ts",
-      "types": "./types/index.d.ts"
-    },
-    "./utils": {
-      "bun": "./src/utils.ts",
-      "types": "./types/utils.d.ts"
-    }
+    ".": "./src/index.ts",
+    "./utils": "./src/utils.ts"
   },
   "scripts": {
     "prepare": "rm -rf types && tsc -p tsconfig.build.json"
@@ -44,10 +38,10 @@
     "bun-types": "latest"
   },
   "peerDependencies": {
-    "typescript": ">= 5.0.0",
+    "typescript": ">= 5.6.3",
     "sass": ">= 1.0.0"
   },
   "dependencies": {
-    "lightningcss-wasm": "^1.22.1"
+    "lightningcss-wasm": "^1.27.0"
   }
 }
