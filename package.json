@@ -1,22 +1,28 @@
 {
-  "name": "bun-style-loader",
-  "description": "Bun plugin to allow loading css, sass files, and css modules",
-  "version": "0.5.0",
+  "name": "bun-sass-loader",
+  "description": "Bun plugin to allow loading css, sass files, and modules",
+  "version": "0.7.0",
   "type": "module",
-  "module": "src/index.ts",
-  "types": "types/index.d.ts",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "maintainers": [
+    {
+      "name": "Taegon Kim",
+      "email": "gonom9@gmail.com",
+      "url": "https://taegon.kim"
+    }
+  ],
   "author": {
-    "name": "Taegon Kim",
-    "email": "gonom9@gmail.com",
-    "url": "https://taegon.kim"
+    "name": "SPWizard01",
+    "url": "https://github.com/SPWizard01/bun-sass-loader"
   },
-  "repository": "https://github.com/taggon/bun-style-loader",
-  "homepage": "https://github.com/taggon/bun-style-loader",
-  "bugs": "https://github.com/taggon/bun-style-loader/issues",
+  "repository": "https://github.com/SPWizard01/bun-sass-loader",
+  "homepage": "https://github.com/SPWizard01/bun-sass-loader",
+  "bugs": "https://github.com/SPWizard01/bun-sass-loader/issues",
   "license": "MIT",
   "files": [
     "src",
-    "types"
+    "dist"
   ],
   "keywords": [
     "bun",
@@ -28,26 +34,19 @@
     "scss"
   ],
   "exports": {
-    ".": {
-      "bun": "./src/index.ts",
-      "types": "./types/index.d.ts"
-    },
-    "./utils": {
-      "bun": "./src/utils.ts",
-      "types": "./types/utils.d.ts"
-    }
+    ".": "./dist/index.js",
+    "./utils": "./dist/utils.js"
   },
   "scripts": {
     "prepare": "rm -rf types && tsc -p tsconfig.build.json"
-  },
-  "devDependencies": {
-    "bun-types": "latest"
   },
   "peerDependencies": {
     "typescript": ">= 5.6.3",
     "sass": ">= 1.0.0"
   },
   "dependencies": {
-    "lightningcss-wasm": "^1.27.0"
+    "@types/bun": "^1.1.13",
+    "lightningcss-wasm": "^1.27.0",
+    "sass-embedded": "^1.80.6"
   }
 }

@@ -1,22 +1,24 @@
-import type { OnLoadResult } from 'bun';
+import type { OnLoadResult } from "bun";
 
 export type CompileOptions = {
   minify?: boolean;
   cssModules?: boolean;
   targets?: string[];
+  processUrlImports?: boolean;
 };
 
 export default async function compileCSS(content: string, path: string, options: CompileOptions = {}): Promise<OnLoadResult> {
-  const css = await import('lightningcss-wasm');
+  const css = await import("lightningcss-wasm");
   const imports: string[] = [];
   const urlImports: string[] = [];
   const targets = options.targets?.length ? css.browserslistToTargets(options.targets) : undefined;
-  const { code, exports } = css.transform({
+  const { code, exports, dependencies } = css.transform({
     filename: path,
     code: Uint8Array.from(Buffer.from(content)),
     cssModules: Boolean(options.cssModules),
     minify: options.minify,
     targets,
+    analyzeDependencies: true,
     visitor: {
       Rule: {
         import(rule) {
@@ -25,59 +27,55 @@ export default async function compileCSS(content: string, path: string, options:
         },
       },
       Url(urlObject) {
-        const isDataOrHttp = urlObject.url.startsWith('data:') || urlObject.url.startsWith('http');
-        if (isDataOrHttp) return urlObject;
+        const isDataOrHttp = urlObject.url.startsWith("data:") || urlObject.url.startsWith("http");
+        if (isDataOrHttp || !options.processUrlImports) return urlObject;
         urlImports.push(urlObject.url);
         return {
           loc: urlObject.loc,
-          url: `[BUN_RESOLVE]${urlObject.url}[/BUN_RESOLVE]`
+          // url: `[BUN_RESOLVE]${urlObject.url}[/BUN_RESOLVE]`
+          url: urlObject.url
         }
       },
     }
   });
 
-  const importedUrls = urlImports.map((url) => `import "${url}";`).join('\n');
+  let importedUrls = ``
+  let placehoders = `[`;
+  if (urlImports.length > 0) {
+    const unique = new Map((dependencies || []).map(obj => [obj.placeholder, obj]));
+    importedUrls += `import { registerStyleImport } from "bun-sass-loader-registry";\n`;
+    unique.forEach((dep, index) => {
+      importedUrls += `import styleDependencyImport${index} from "${dep.url}";`
+      importedUrls += `registerStyleImport("${dep.placeholder}",styleDependencyImport${index});\n`
+      placehoders += `"${dep.placeholder}",`
+    });
+  }
+  placehoders += `]`;
   const codeString = code.toString();
-  const needsResolving = codeString.includes("[BUN_RESOLVE]");
-  const styleResolver = needsResolving ? `import bun_style_resolver from "bun-style-loader-resolver";` : '';
-  const withResolver = needsResolving ? `bun_style_resolver(${JSON.stringify(codeString)})` : JSON.stringify(codeString);
+  const needsResolving = !!!dependencies; //codeString.includes("[BUN_RESOLVE]");
+  const styleResolver = needsResolving ? `import bun_style_resolver from "bun-sass-loader-resolver";` : "";
+  const withResolver = needsResolving ? `bun_style_resolver(\`${codeString}\`, ${placehoders})` : `\`${codeString}\``;
+  const nameMap = Object.fromEntries(Object.entries(exports || {}).map(([key, item]) => [key, item.name]));
+  const imported = imports.map((url, i) => `import _css${i} from "${url}";`).join("\n");
+  const exported = imports.map((_, i) => `_css${i}`).join(" + ");
 
-  if (options.cssModules) {
-    const nameMap = Object.fromEntries(Object.entries(exports || {}).map(([key, item]) => [key, item.name]));
-    return {
-      contents: `
-        ${styleResolver}
-        ${importedUrls}
-        export const code = ${withResolver};
-        export default ${JSON.stringify(nameMap)};
-      `,
-      loader: 'js',
-    };
-  }
+  const codeExport = exported ? `${exported} + ${withResolver}` : withResolver;
 
+  const exportContent = options.cssModules ? `
+    export const code = ${codeExport};
+    export default ${JSON.stringify(nameMap)};
+  ` :
+    `export default ${codeExport};`;
 
-  if (imports.length === 0) {
-    return {
-      contents: `
-        ${styleResolver}
-        ${importedUrls}
-        export default ${withResolver};
-      `,
-      loader: 'js',
-    };
-  }
-
-  const imported = imports.map((url, i) => `import _css${i} from "${url}";`).join('\n');
-  const exported = imports.map((_, i) => `_css${i}`).join(' + ');
-
+  let contents = `
+    ${styleResolver}
+    ${importedUrls}
+    ${imported}
+    ${exportContent}
+  `
 
   return {
-    contents: `
-      ${styleResolver}
-      ${importedUrls}
-      ${imported}
-      export default ${exported} + ${withResolver};
-    `,
-    loader: 'js',
+    contents,
+    loader: "js",
   };
 }

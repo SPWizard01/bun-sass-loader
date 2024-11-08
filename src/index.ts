@@ -1,5 +1,5 @@
-import type { BunPlugin } from 'bun';
-import compileCSS from './compile-css';
+import type { BunPlugin } from "bun";
+import compileCSS from "./compile-css";
 
 /**
  * No options for now
@@ -7,82 +7,106 @@ import compileCSS from './compile-css';
 export type StyleLoaderOptions = {
   /**
    * List of target browsers to support
-   * @example ['chrome 80', 'ie 11']
+   * @example ["chrome 80", "ie 11"]
    */
   targets?: string[];
   minify?: boolean;
+  /**
+   * Process url() imports in css files. Anything that starts with data: or http inside url() will be ignored
+   */
+  processUrlImports?: boolean;
+  precompile?(source: string, path: string): string;
 };
 
 const defaultOptions: StyleLoaderOptions = {
   targets: [],
-  minify: true
+  minify: true,
+  processUrlImports: true,
 };
 
-function bun_style_resolver(text: string) {
-  let newText = text ?? "";
-  if (!newText) return newText;
-
-  const pathSearch = new RegExp(
-    /(\[BUN_RESOLVE\])(?<RelativePath>.*)(\[\/BUN_RESOLVE\])/g
-  );
-  const foundResources = text.matchAll(pathSearch);
-
-  for (const iterator of foundResources) {
-    const relPath = iterator["groups"]!.RelativePath;
-    const escapedPath = relPath.replace(/[.*+?^${}()|[\]\\]/g, `\\$&`);
-    const replaceRegexp = new RegExp(
-      `\\[BUN_RESOLVE\\]${escapedPath}\\[\\/BUN_RESOLVE\\]`
-    );
-    const resolvedPath = import.meta.resolve(relPath);
-    newText = newText.replace(replaceRegexp, `"${resolvedPath}"`);
-  }
-  return newText;
-
-}
 
 export default function styleLoader(options: StyleLoaderOptions = {}): BunPlugin {
   const opts = { ...defaultOptions, ...options };
+  let registryContents = ``;
+  let resolverContents = ``;
 
   return {
-    name: 'style-loader',
+    name: "bun-sass-loader",
     async setup(build) {
-      const [sass, fs] = await Promise.all([
-        import('sass'),
-        import('fs'),
+      const [sass, fs, os, embedded] = await Promise.all([
+        import("sass"),
+        import("fs"),
+        import("os"),
+        import("sass-embedded")
       ]);
-      build.onResolve({ filter: /bun-style-loader-resolver/ }, (args) => {
+
+      function getFilePath(path: string) {
+        const toRead = import.meta.resolve(path);
+        const formatted = toRead.replace(os.platform() === "win32" ? "file:///" : "file://", "");
+        return formatted;
+      }
+
+      build.onResolve({ filter: /bun-sass-loader-registry/ }, (args) => {
         return {
-          path: "bun-style-loader-resolver",
-          namespace: "bun-style-loader-resolver",
+          path: "bun-sass-loader-registry",
+          namespace: "bun-sass-loader-registry",
         };
       });
 
-      build.onLoad({ filter: /./, namespace: "bun-style-loader-resolver" }, (args) => {
+      build.onLoad({ filter: /./, namespace: "bun-sass-loader-registry" }, async (args) => {
+        if (!registryContents) {
+          const formatted = getFilePath("./importRegistry.js");
+          registryContents = await fs.promises.readFile(formatted, "utf8");;
+        }
         return {
-          contents: `
-            export default ${bun_style_resolver.toString()};
-          `,
-          loader: 'js',
+          contents: registryContents,
+          loader: "js",
+        }
+      });
+
+      build.onResolve({ filter: /bun-sass-loader-resolver/ }, (args) => {
+        return {
+          path: "bun-sass-loader-resolver",
+          namespace: "bun-sass-loader-resolver",
+        };
+      });
+
+      build.onLoad({ filter: /./, namespace: "bun-sass-loader-resolver" }, async (args) => {
+        if (!resolverContents) {
+          const formatted = getFilePath("./styleAssetResolver.js");
+          resolverContents = await fs.promises.readFile(formatted, "utf8");;
+        }
+
+        return {
+          contents: resolverContents,
+          loader: "js",
         }
       });
       build.onLoad({ filter: /\.css$/ }, (args) => {
-        const contents = fs.readFileSync(args.path, 'utf8');
-        const isCssModule = args.path.endsWith('.module.css');
-
-        return compileCSS(contents, args.path, {
+        const contents = fs.readFileSync(args.path, "utf8");
+        const isCssModule = args.path.endsWith(".module.css");
+        const precompiled = opts.precompile?.(contents, args.path) ?? contents;
+        return compileCSS(precompiled, args.path, {
           cssModules: isCssModule,
           targets: opts.targets,
-          minify: opts.minify
+          minify: opts.minify,
+          processUrlImports: opts.processUrlImports,
         });
       });
 
-      build.onLoad({ filter: /\.scss$/ }, (args) => {
-        const result = sass.compile(args.path);
-        return compileCSS(result.css, args.path, {
+      build.onLoad({ filter: /\.scss$/ }, async (args) => {
+        //const result = sass.compile(args.path);
+        const result = await embedded.compileAsync(args.path);
+        const isCssModule = args.path.endsWith(".module.scss");
+        const precompiled = opts.precompile?.(result.css, args.path) ?? result.css;
+        return compileCSS(precompiled, args.path, {
           targets: opts.targets,
-          minify: opts.minify
+          minify: opts.minify,
+          cssModules: isCssModule,
+          processUrlImports: opts.processUrlImports,
         });
       });
     },
   };
 }
+
