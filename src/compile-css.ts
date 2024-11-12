@@ -30,11 +30,7 @@ export default async function compileCSS(content: string, path: string, options:
         const isDataOrHttp = urlObject.url.startsWith("data:") || urlObject.url.startsWith("http");
         if (isDataOrHttp || !options.processUrlImports) return urlObject;
         urlImports.push(urlObject.url);
-        return {
-          loc: urlObject.loc,
-          // url: `[BUN_RESOLVE]${urlObject.url}[/BUN_RESOLVE]`
-          url: urlObject.url
-        }
+        return urlObject;
       },
     }
   });
